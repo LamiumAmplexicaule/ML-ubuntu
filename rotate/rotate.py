@@ -1,4 +1,6 @@
 
+#%%
+
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -10,30 +12,50 @@ import torch.optim as optim
 import scipy
 from scipy import ndimage
 from sklearn.decomposition import PCA
+from image_rotate import image_rotate, image_rotate_dim
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 torch.manual_seed(31415926535)
 
 transform = transforms.Compose(
-    [transforms.ToTensor()]
+    [transforms.ToTensor(), transforms.RandomRotation(degrees=(0, 360))]
 )
+
+transform_withoutrotate = transforms.Compose([transforms.ToTensor()])
 
 batch_size = 4
 
 trainset = torchvision.datasets.MNIST(
     root="./data", train=True, download=True, transform=transform
 )
-trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=batch_size, shuffle=True, num_workers=2
+
+trainset_withoutrotate = torchvision.datasets.CIFARtrainset = torchvision.datasets.MNIST(
+    root="./data", train=True, download=True, transform=transform_withoutrotate
 )
 
-testset = torchvision.datasets.MNIST(
+trainloader = torch.utils.data.DataLoader(
+    trainset, batch_size=batch_size, shuffle=True, num_workers=0
+)
+
+testset = torchvision.datasets.CIFARtrainset = torchvision.datasets.MNIST(
     root="./data", train=False, download=True, transform=transform
 )
 testloader = torch.utils.data.DataLoader(
-    testset, batch_size=batch_size, shuffle=False, num_workers=2
+    testset, batch_size=batch_size, shuffle=False, num_workers=0
 )
+
+# def initialize_weights(m):
+#     if isinstance(m, nn.Conv2d):
+#         nn.init.constant_(m.weight.data, 0.01)
+#         if m.bias is not None:
+#             nn.init.constant_(m.bias.data, 0)
+#     elif isinstance(m, nn.BatchNorm2d):
+#         nn.init.constant_(m.weight.data, 0.01)
+#         nn.init.constant_(m.bias.data, 0)
+#     elif isinstance(m, nn.Linear):
+#         nn.init.constant_(m.weight.data, 0.01)
+#         nn.init.constant_(m.bias.data, 0)
 
 
 class Net(nn.Module):
@@ -46,12 +68,37 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
-    def forward(self, x,last_layer_flag = False):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
+    def forward(
+        self,
+        x,
+        first_layer_flag=False,
+        second_layer_flag=False,
+        third_layer_flag=False,
+        fourth_layer_flag=False,
+        fifth_layer_flag=False,
+        last_layer_flag=False,
+    ):
+        x = self.conv1(x)
+        if first_layer_flag:
+            return x
+        x = F.relu(x)
+        x = self.pool(x)
+        x = self.conv2(x)
+        if second_layer_flag:
+            return x
+        x = F.relu(x)
+        x = self.pool(x)
         x = torch.flatten(x, 1)  # flatten all dimensions except batch
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        if third_layer_flag:
+            return x
+        x = self.fc1(x)
+        if fourth_layer_flag:
+            return x
+        x = F.relu(x)
+        if fifth_layer_flag:
+            return x
+        x = self.fc2(x)
+        x = F.relu(x)
         if last_layer_flag:
             return x
         x = self.fc3(x)
@@ -60,52 +107,45 @@ class Net(nn.Module):
 
 net = Net()
 net.to(device)
+# net.apply(initialize_weights)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
+
 def imshow(img):
-    img = img / 2 + 0.5     # unnormalize
+    img = img / 2 + 0.5  # unnormalize
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
-    
-value_before_training = torch.empty(360, 84, dtype=torch.float)
-value_after_training = torch.empty(360, 84, dtype=torch.float)
+
 
 with torch.no_grad():
-    for angle_in_degrees in range(0,360):
-        image = trainset[0][0].reshape(28,28)
-        # how to rotate image? ->complete
-        image = ndimage.rotate(image, angle_in_degrees, reshape=False)
-        image = torch.from_numpy(image)
-        # print(angle_in_degrees)
-        # imshow(torchvision.utils.make_grid(image))
-        image = image.reshape(1,1,28,28).to(device)
-        
-        outputs = net(image,last_layer_flag = True)
-        # how to get values of immedeate layer ? -> complete
-        value_before_training[angle_in_degrees] = outputs
-    pca = PCA(n_components=2)
-    pca.fit(value_before_training)
-    value_before_training = pca.transform(value_before_training)
-    
-    # value_before_training_numpy = value_before_training.numpy()
-    rng = np.random.RandomState(0)
-    x = np.linspace(0, 360, 360)
-    colors = np.arange(360) / 180
-    sizes = 1000 * rng.rand(100)
-    print(value_before_training[:,0])
-    print(value_before_training[:,1])
-    plt.scatter(value_before_training[:,0], value_before_training[:,1],c = x, alpha=0.3,
-                cmap='viridis')
-    plt.colorbar();  # show color scale
-    plt.legend(numpoints=1)
-    plt.xlim(-0.1, 0.1);
-    plt.ylim(-0.1, 0.1);
-    plt.show()
 
-for epoch in range(2):  # loop over the dataset multiple times
+    for i in range(0, 6):
+        image_rotate_dim(
+            net, trainset_withoutrotate, 2, (360, 24, 24), 576, i, first_layer_flag=True
+        )
+
+    for i in range(0, 16):
+        image_rotate_dim(
+            net, trainset_withoutrotate, 2, (360, 8, 8), 64, i, second_layer_flag=True
+        )
+
+    image_rotate(net, trainset_withoutrotate, 2, (360, 256), 256, third_layer_flag=True)
+
+    image_rotate(
+        net, trainset_withoutrotate, 2, (360, 120), 120, fourth_layer_flag=True
+    )
+
+    image_rotate(
+        net, trainset_withoutrotate, 2, (360, 120), 120, fourth_layer_flag=True
+    )
+
+    image_rotate(net, trainset_withoutrotate, 2, (360, 84), 84, last_layer_flag=True)
+# want to code : image_number(number) -> image of number
+
+for epoch in range(1):  # loop over the dataset multiple times
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
@@ -126,7 +166,7 @@ for epoch in range(2):  # loop over the dataset multiple times
         if i % 2000 == 1999:  # print every 2000 mini-batches
             print("[%d, %5d] loss: %.3f" % (epoch + 1, i + 1, running_loss / 2000))
             running_loss = 0.0
-            
+
             correct = 0
             total = 0
             # since we're not training, we don't need to calculate the gradients for our outputs
@@ -140,47 +180,40 @@ for epoch in range(2):  # loop over the dataset multiple times
                     total += labels.size(0)
                     correct += (predicted == labels).sum().item()
 
-            print('Accuracy of the network on the 10000 test images: %f %%' % (
-                100 * correct / total))
-            
-with torch.no_grad():
-    for angle_in_degrees in range(0,360):
-        image = trainset[0][0].reshape(28,28)
-        # how to rotate image? ->complete
-        image = ndimage.rotate(image, angle_in_degrees, reshape=False)
-        image = torch.from_numpy(image)
-        # print(angle_in_degrees)
-        # imshow(torchvision.utils.make_grid(image))
-        image = image.reshape(1,1,28,28).to(device)
-        
-        outputs = net(image,last_layer_flag = True)
-        # how to get values of immedeate layer ? -> complete
-        print("check")
-        value_after_training[angle_in_degrees] = outputs.cpu()
-        print("check")
-        
-    pca = PCA(n_components=2)
-    pca.fit(value_after_training)
-    value_after_training = pca.transform(value_after_training)
+            print(
+                "Accuracy of the network on the 10000 test images: %f %%"
+                % (100 * correct / total)
+            )
 
-    # value_after_training_numpy = value_after_training.numpy()
-    rng = np.random.RandomState(0)
-    x = np.linspace(0, 360, 360)
-    colors = np.arange(360) / 180
-    sizes = 1000 * rng.rand(100)
-    print(value_after_training[:,0])
-    print(value_after_training[:,1])
-    plt.scatter(value_after_training[:,0], value_after_training[:,1],c = x, alpha=0.3,
-                cmap='viridis')
-    plt.colorbar();  # show color scale
-    plt.legend(numpoints=1)
-    plt.xlim(-10, 10);
-    plt.ylim(-10, 10);
-    plt.show()
-            
+
+with torch.no_grad():
+
+    for i in range(0, 6):
+        image_rotate_dim(
+            net, trainset_withoutrotate, 2, (360, 24, 24), 576, i, first_layer_flag=True
+        )
+
+    for i in range(0, 16):
+        image_rotate_dim(
+            net, trainset_withoutrotate, 2, (360, 8, 8), 64, i, second_layer_flag=True
+        )
+
+    image_rotate(net, trainset_withoutrotate, 2, (360, 256), 256, third_layer_flag=True)
+
+    image_rotate(
+        net, trainset_withoutrotate, 2, (360, 120), 120, fourth_layer_flag=True
+    )
+
+    image_rotate(
+        net, trainset_withoutrotate, 2, (360, 120), 120, fourth_layer_flag=True
+    )
+
+    image_rotate(net, trainset_withoutrotate, 2, (360, 84), 84, last_layer_flag=True)
+
 
 print("Finished Training")
 
-PATH = "./mnist_net.pth"
+PATH = "./CIFARtrainset = torchvision.datasets.MNIST_net.pth"
 torch.save(net.state_dict(), PATH)
 
+# %%
