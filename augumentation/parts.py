@@ -43,10 +43,11 @@ def mnist_number(number):
         return 4
 
 
-def print_pca(value, output_flatsize, value_size,dataset_number,augumentation,end,output_dimention_num):
+def print_pca(value, output_flatsize, value_size, dataset_number, augumentation, end, output_dimention_num):
     value = value.reshape(value_size, output_flatsize)
     pca = PCA(n_components=2)
     pca.fit(value)
+    print(pca.explained_variance_ratio_)
     value = pca.transform(value)
 
     x = np.linspace(0, value_size, value_size)
@@ -58,32 +59,59 @@ def print_pca(value, output_flatsize, value_size,dataset_number,augumentation,en
         cmap="viridis",
     )
     plt.colorbar()
-    plt.title(augumentation + f' Number {dataset_number} dimention {output_dimention_num} of layer {end}')
-    plt.xlabel('value of dimention 1')
-    plt.ylabel('value of dimention 0')
+    plt.title(augumentation +
+              f' Number {dataset_number} dimention {output_dimention_num} of layer {end}')
+    plt.xlabel('0D')
+    plt.ylabel('1D')
     plt.show()
-    
-        
-def dimetion_of_layer(layer):
-    if layer in (0,1,2):
-        return (24,24)
+
+
+def print_pca_3d(value, output_flatsize, value_size, dataset_number, augumentation, end, output_dimention_num):
+    value = value.reshape(value_size, output_flatsize)
+    pca = PCA(n_components=3)
+    pca.fit(value)
+    print(pca.explained_variance_ratio_)
+    value = pca.transform(value)
+
+    x = np.linspace(0, value_size, value_size)
+    ax = plt.axes(projection='3d')
+    ax.scatter(
+        value[:, 0],
+        value[:, 1],
+        value[:, 2],
+        c=x,
+        alpha=0.3,
+        cmap="viridis",
+    )
+    plt.title(augumentation +
+              f' Number {dataset_number} dimention {output_dimention_num} of layer {end}')
+    ax.set_xlabel('0D')
+    ax.set_ylabel('1D')
+    ax.set_zlabel('2D')
+    plt.show()
+
+
+def dimention_of_layer(layer):
+    if layer in (0, 1, 2):
+        return (24, 24)
     elif layer == 3:
-        return (12,12)
-    elif layer in (4,5,6):
-        return (8,8)
+        return (12, 12)
+    elif layer in (4, 5, 6):
+        return (8, 8)
     elif layer == 7:
-        return (4,4)
+        return (4, 4)
     elif layer == 8:
         return (256,)
-    elif layer in (9,10):
+    elif layer in (9, 10):
         return (120,)
-    elif layer in (11,12):
+    elif layer in (11, 12):
         return (84,)
-    
+
+
 def number_of_layer(layer):
-    if layer in (0,1,2,3):
+    if layer in (0, 1, 2, 3):
         return 6
-    elif layer in (4,5,6,7):
+    elif layer in (4, 5, 6, 7):
         return 16
-    elif layer in (8,9,10,11,12):
+    elif layer in (8, 9, 10, 11, 12):
         return -1

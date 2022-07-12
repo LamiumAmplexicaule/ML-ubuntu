@@ -1,4 +1,3 @@
-
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -11,13 +10,13 @@ import scipy
 from scipy import ndimage
 from sklearn.decomposition import PCA
 import matplotlib.image as mpimg
-from parts import imshow, mnist_number, print_pca, dimetion_of_layer, FC_dimetion_of_layer
+from parts import imshow, mnist_number, print_pca, dimention_of_layer, print_pca_3d
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 transform = transforms.Compose([transforms.ToTensor()])
 
-dataset = "mnist"
+dataset = "cifar10"
 
 if dataset == "mnist":
     trainset = torchvision.datasets.MNIST(
@@ -46,14 +45,16 @@ def image_augumentation(
         data_dimention = 1
         axes = (1, 0)
 
-    output_size = FC_dimetion_of_layer(end)
+    output_size = dimention_of_layer(end)
 
     if augumentation in ("shift_x", "shift_y"):
-        value_size = 57
+        value_size = datasize * 2 + 1
     elif augumentation == "rotate":
         value_size = 360
     elif augumentation == "shift_x_y":
         value_size = 3249
+    elif augumentation in ("shuffle", "change_color"):
+        value_size = 300
 
     output_flatsize = 1
     for i in output_size:
@@ -93,8 +94,14 @@ def image_augumentation(
             elif dataset == "mnist":
                 image = ndimage.shift(
                     image, ((degrees//57 - datasize), (degrees % 57 - datasize)))
+        elif augumentation == "shuffle":
+            image_shuffle(image, 0, 0, 32, 32)
+        elif augumentation == "change_color":
+            image *= 0.01 * degrees
 
-        image = torch.from_numpy(image)
+        if not augumentation in ("shuffle", "change_color"):
+            image = torch.from_numpy(image)
+
         # imshow(torchvision.utils.make_grid(image))
         image = image.reshape(1, data_dimention, datasize, datasize).to(device)
 
@@ -105,5 +112,13 @@ def image_augumentation(
             outputs = net(image, end)
             value[degrees] = outputs[0].cpu()
 
-    print_pca(value, output_flatsize, value_size, dataset_number,
-              augumentation, end, output_dimention_num)
+    # print_pca(value, output_flatsize, value_size,dataset_number,augumentation,end,output_dimention_num)
+
+    # print_pca_3d(value, output_flatsize, value_size,dataset_number,augumentation,end,output_dimention_num)
+
+
+def image_shuffle(image, sx, sy, dx, dy):
+    # 座標ごとのshuffle,ある特定区間のshuffleも作ってみたい
+    idx = torch.randperm(image.nelement())
+    print(image.nelement())
+    image = image.view(-1)[idx].view(image.size())
